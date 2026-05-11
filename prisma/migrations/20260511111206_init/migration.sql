@@ -2,6 +2,7 @@
 CREATE TABLE "user" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
+    "password" TEXT,
     "name" TEXT NOT NULL,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
     "image" TEXT,
@@ -14,9 +15,13 @@ CREATE TABLE "user" (
 -- CreateTable
 CREATE TABLE "Content" (
     "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
     "link" TEXT NOT NULL,
     "type" TEXT NOT NULL,
+    "embedding" vector(1024),
     "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Content_pkey" PRIMARY KEY ("id")
 );
@@ -25,6 +30,8 @@ CREATE TABLE "Content" (
 CREATE TABLE "Tag" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Tag_pkey" PRIMARY KEY ("id")
 );
@@ -34,6 +41,8 @@ CREATE TABLE "Link" (
     "id" TEXT NOT NULL,
     "hash" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Link_pkey" PRIMARY KEY ("id")
 );

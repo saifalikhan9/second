@@ -34,7 +34,7 @@ model Content {
   title String
   link String
   type String
-
+  embedding Unsupported("vector(1024)")?
   userId String
   users  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 

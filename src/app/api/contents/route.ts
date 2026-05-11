@@ -1,7 +1,8 @@
-import { auth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
-import { headers } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { createEmbeddings } from "@/lib/sever-functions/embediings";
+import { headers } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
 
 export const getUserId = async () => {
   const session = await auth.api.getSession({
@@ -20,7 +21,7 @@ export const GET = async () => {
         {
           success: false,
           data: [],
-          message: 'Unauthorized',
+          message: "Unauthorized",
         },
         { status: 401 },
       );
@@ -31,7 +32,7 @@ export const GET = async () => {
         userId,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
@@ -39,7 +40,7 @@ export const GET = async () => {
       {
         success: true,
         data: contents,
-        message: 'Fetched Successfully',
+        message: "Fetched Successfully",
       },
       { status: 200 },
     );
@@ -50,7 +51,7 @@ export const GET = async () => {
       {
         success: false,
         data: [],
-        message: 'Server side error',
+        message: "Server side error",
       },
       { status: 500 },
     );
@@ -65,7 +66,7 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json(
         {
           success: false,
-          message: 'Unauthorized',
+          message: "Unauthorized",
         },
         { status: 401 },
       );
@@ -79,29 +80,50 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json(
         {
           success: false,
-          message: 'All fields are required',
+          message: "All fields are required",
         },
         { status: 400 },
       );
     }
 
-    const content = await prisma.content.create({
-      data: {
+    const embedding = await createEmbeddings(title);
+    if (!embedding)
+      return NextResponse.json({
+        success: false,
+        message: "Failed in generating embedings ",
+      });
+
+    const [content] = await prisma.$queryRaw<any[]>`
+      INSERT INTO "Content"
+      (
+        id,
         title,
         link,
         type,
-        tags: {
-          connect: [],
-        },
-        userId,
-      },
-    });
+        embedding,
+        "userId",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES
+      (
+        gen_random_uuid(),
+        ${title},
+        ${link},
+        ${type},
+        ${JSON.stringify(embedding)}::vector,
+        ${userId},
+        NOW(),
+        NOW()
+      )
+      RETURNING *;
+    `;
 
     return NextResponse.json(
       {
         success: true,
         data: content,
-        message: 'Content created successfully',
+        message: "Content created successfully",
       },
       { status: 201 },
     );
@@ -111,7 +133,7 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json(
       {
         success: false,
-        message: 'Server side error',
+        message: "Server side error",
       },
       { status: 500 },
     );
@@ -126,7 +148,7 @@ export const DELETE = async (req: NextRequest) => {
       return NextResponse.json(
         {
           success: false,
-          message: 'Unauthorized',
+          message: "Unauthorized",
         },
         { status: 401 },
       );
@@ -142,7 +164,7 @@ export const DELETE = async (req: NextRequest) => {
       return NextResponse.json(
         {
           success: false,
-          message: 'Content id is required',
+          message: "Content id is required",
         },
         { status: 400 },
       );
@@ -159,7 +181,7 @@ export const DELETE = async (req: NextRequest) => {
       return NextResponse.json(
         {
           success: false,
-          message: 'Content not found',
+          message: "Content not found",
         },
         { status: 404 },
       );
@@ -174,7 +196,7 @@ export const DELETE = async (req: NextRequest) => {
     return NextResponse.json(
       {
         success: true,
-        message: 'Content deleted successfully',
+        message: "Content deleted successfully",
       },
       { status: 200 },
     );
@@ -184,7 +206,7 @@ export const DELETE = async (req: NextRequest) => {
     return NextResponse.json(
       {
         success: false,
-        message: 'Server side error',
+        message: "Server side error",
       },
       { status: 500 },
     );

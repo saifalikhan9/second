@@ -1,8 +1,8 @@
-import { auth } from '@/lib/auth';
-import { LogoutButton } from '@/components/auth/LogoutButton';
-import { Button } from '@/components/ui/button';
-import { headers } from 'next/headers';
-import Link from 'next/link';
+import { auth } from "@/lib/auth";
+import { LogoutButton } from "@/components/auth/LogoutButton";
+import { Button } from "@/components/ui/button";
+import { headers } from "next/headers";
+import Link from "next/link";
 
 export default async function Page() {
   const session = await auth.api.getSession({
@@ -20,11 +20,11 @@ export default async function Page() {
           <>
             <div className="rounded-lg border p-4">
               <p>
-                <strong>Name:</strong> {session?.user?.name ?? 'Unknown user'}
+                <strong>Name:</strong> {session?.user?.name ?? "Unknown user"}
               </p>
               <p>
-                <strong>Email:</strong>{' '}
-                {session?.user?.email ?? 'No email available'}
+                <strong>Email:</strong>{" "}
+                {session?.user?.email ?? "No email available"}
               </p>
             </div>
 

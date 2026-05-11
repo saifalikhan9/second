@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export default function proxy(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const hasSessionCookie = request.cookies
     .getAll()
     .some((cookie) =>

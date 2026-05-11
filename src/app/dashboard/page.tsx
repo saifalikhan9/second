@@ -1,33 +1,38 @@
-'use client';
+"use client";
 
-import { EmbedCard, getYoutubeEmbedUrl } from '@/components/EmbedCard';
-import { GooeyInput } from '@/components/GlooeyInput';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useContentStore } from '@/hooks/store';
-import { BASE_URL } from '@/lib/constants';
-import { cn } from '@/lib/utils';
-import { IconPlusFilled, IconShare, IconX } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import { EmbedCard } from "@/components/EmbedCard";
+import { GooeyInput } from "@/components/GlooeyInput";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useContentStore, type Content } from "@/hooks/store";
+import { BASE_URL } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+import { IconPlusFilled, IconShare, IconX } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
 
-import { createContent, getContent } from '../actions/contents';
-import { share } from '../actions/share';
+import { createContent, getContent, searchContent } from "../actions/contents";
+import { share } from "../actions/share";
 
 const CONTENT_REFRESH_MS = 30_000;
 
 export default function Page() {
   const contents = useContentStore().content;
-  const addContent = useContentStore().addContent;
+
   const setContents = useContentStore().setContents;
   const isInitialLoading = useContentStore().isInitialLoading;
   const isSavingContent = useContentStore().isSavingContent;
   const setIsInitialLoading = useContentStore().setIsInitialLoading;
-  const setIsSavingContent = useContentStore().setIsSavingContent;
 
   const [open, setOpen] = useState(false);
   const [isUsingLocalFallback, setIsUsingLocalFallback] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchedContents, setSearchedContents] = useState<Content[]>([]);
+  const [selectedSearchContentId, setSelectedSearchContentId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,10 +40,11 @@ export default function Page() {
     async function fetchContents(initial: boolean) {
       try {
         if (initial) setIsInitialLoading(true);
+
         const data = await getContent();
         if (cancelled) return;
         if (data.success !== true) {
-          throw new Error('failed to fetch the contents');
+          throw new Error("failed to fetch the contents");
         }
         setIsUsingLocalFallback(false);
         setContents(data.data);
@@ -56,6 +62,7 @@ export default function Page() {
     }
 
     void fetchContents(true);
+
     const intervalId = setInterval(
       () => void fetchContents(false),
       CONTENT_REFRESH_MS,
@@ -67,13 +74,96 @@ export default function Page() {
     };
   }, [setContents, setIsInitialLoading]);
 
+  useEffect(() => {
+    const trimmedQuery = searchQuery.trim();
+    let cancelled = false;
+
+    if (!trimmedQuery) {
+      setSearchedContents([]);
+      setIsSearching(false);
+      setSelectedSearchContentId(null);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setIsSearching(true);
+
+      try {
+        const data = await searchContent(trimmedQuery, 20);
+        console.log(data);
+        
+        if (cancelled) return;
+        if (data.success !== true) {
+          throw new Error("failed to search contents");
+        }
+        const nextResults = data.data ?? [];
+        setSearchedContents(nextResults);
+        setSelectedSearchContentId((prev) =>
+          prev && nextResults.some((item: Content) => item.id === prev) ? prev : null,
+        );
+      } catch (error) {
+        console.log(error);
+        if (cancelled) return;
+        setSearchedContents([]);
+        setSelectedSearchContentId(null);
+      } finally {
+        if (cancelled) return;
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [searchQuery]);
+
+  const isSearchActive = searchQuery.trim().length > 0;
+  const selectedSearchContent = selectedSearchContentId
+    ? contents.find((item) => item.id === selectedSearchContentId) ?? null
+    : null;
+  const displayedContents = selectedSearchContent ? [selectedSearchContent] : contents;
+
   return (
     <div className="relative w-full">
       {open && <NewContentCard setOpen={setOpen} />}
 
       <div className="mx-2 p-4">
         <nav className="bg-accent flex items-center justify-between rounded-xl px-4 py-3">
-          <GooeyInput />
+          <div className="relative mr-4 w-full max-w-xl">
+            <GooeyInput
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+              placeholder="Search semantically..."
+            />
+
+            {isSearchActive && (
+              <div className="bg-background absolute top-full z-20 mt-2 w-full rounded-md border shadow-md">
+                {isSearching ? (
+                  <p className="text-muted-foreground px-3 py-2 text-sm">Searching...</p>
+                ) : searchedContents.length === 0 ? (
+                  <p className="text-muted-foreground px-3 py-2 text-sm">
+                    No related titles found.
+                  </p>
+                ) : (
+                  <ul className="max-h-64 overflow-y-auto">
+                    {searchedContents.map((item) => (
+                      <li
+                        key={item.id}
+                        className={cn(
+                          "hover:bg-muted border-b px-3 py-2 text-sm last:border-b-0",
+                          selectedSearchContentId === item.id && "bg-muted",
+                        )}
+                        onClick={() => setSelectedSearchContentId(item.id)}
+                      >
+                        {item.title}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <Button
@@ -86,7 +176,7 @@ export default function Page() {
                   }
                 } catch (error) {
                   console.log(error);
-                  alert('failed');
+                  alert("failed");
                 }
               }}
               variant="outline"
@@ -117,7 +207,7 @@ export default function Page() {
                   Please wait while we fetch your saved links.
                 </p>
               </div>
-            ) : contents.length === 0 ? (
+            ) : displayedContents.length === 0 ? (
               <div className="mb-4 flex h-40 break-inside-avoid flex-col items-center justify-center text-center">
                 <h2 className="text-lg font-semibold">No content found</h2>
                 <p className="text-muted-foreground text-sm">
@@ -133,7 +223,7 @@ export default function Page() {
                 </Button>
               </div>
             ) : (
-              contents.map((e) => (
+              displayedContents.map((e) => (
                 <div key={e.id} className="mb-4 break-inside-avoid">
                   <EmbedCard data={e} />
                 </div>
@@ -154,9 +244,9 @@ const NewContentCard = ({ setOpen }: { setOpen: (val: boolean) => void }) => {
   const setIsSavingContent = useContentStore().setIsSavingContent;
 
   const [formData, setFormData] = useState({
-    title: '',
-    link: '',
-    type: 'twitter',
+    title: "",
+    link: "",
+    type: "twitter",
   });
 
   const handleSubmit = async (_data: FormData) => {
@@ -164,18 +254,18 @@ const NewContentCard = ({ setOpen }: { setOpen: (val: boolean) => void }) => {
 
     try {
       if (!formData.title || !formData.link) {
-        alert('Please provide valid fields');
+        alert("Please provide valid fields");
         return;
       }
-      
+
       if (!isValidUrl(formData.link)) {
-        alert('Please enter a valid URL');
+        alert("Please enter a valid URL");
         return;
       }
-      
-      if (formData.type === 'linkedin') {
+
+      if (formData.type === "linkedin") {
         if (!isValidLinkedInEmbedUrl(formData.link)) {
-          alert('Please enter a valid LinkedIn embed URL');
+          alert("Please enter a valid LinkedIn embed URL");
           return;
         }
       }
@@ -186,20 +276,20 @@ const NewContentCard = ({ setOpen }: { setOpen: (val: boolean) => void }) => {
       const data = await createContent(formData);
 
       if (!data?.success || !data?.data) {
-        throw new Error('Failed to create content');
+        throw new Error("Failed to create content");
       }
 
       addContent(data.data);
       setFormData({
-        title: '',
-        link: '',
-        type: 'twitter',
+        title: "",
+        link: "",
+        type: "twitter",
       });
 
       setOpen(false);
     } catch (error) {
       console.log(error);
-      alert('failed to create content');
+      alert("failed to create content");
     } finally {
       setIsSavingContent(false);
     }
@@ -254,7 +344,7 @@ const NewContentCard = ({ setOpen }: { setOpen: (val: boolean) => void }) => {
               />
             </div>
 
-            {formData.type === 'linkedin' && (
+            {formData.type === "linkedin" && (
               <div className="rounded-md border border-amber-300 bg-amber-100 px-3 py-3 text-sm text-amber-900">
                 <p className="font-medium">LinkedIn requires an embed URL.</p>
 
@@ -277,7 +367,7 @@ const NewContentCard = ({ setOpen }: { setOpen: (val: boolean) => void }) => {
               <Label>Content Type</Label>
 
               <div className="flex flex-wrap gap-2">
-                {['twitter', 'youtube', 'linkedin'].map((type) => (
+                {["twitter", "youtube", "linkedin"].map((type) => (
                   <button
                     key={type}
                     type="button"
@@ -288,7 +378,7 @@ const NewContentCard = ({ setOpen }: { setOpen: (val: boolean) => void }) => {
                       }))
                     }
                     className={cn(
-                      `${formData.type === type ? 'bg-primary text-white' : ''} rounded px-2 py-1 capitalize shadow transition-all duration-150 ease-in-out`,
+                      `${formData.type === type ? "bg-primary text-white" : ""} rounded px-2 py-1 capitalize shadow transition-all duration-150 ease-in-out`,
                     )}
                   >
                     {type}
@@ -298,7 +388,7 @@ const NewContentCard = ({ setOpen }: { setOpen: (val: boolean) => void }) => {
             </div>
 
             <Button type="submit" disabled={isSavingContent}>
-              {isSavingContent ? 'Saving...' : 'Create Content'}
+              {isSavingContent ? "Saving..." : "Create Content"}
             </Button>
           </form>
         </CardContent>
@@ -320,10 +410,10 @@ const isValidLinkedInEmbedUrl = (url: string) => {
     const parsed = new URL(url);
 
     const validHost =
-      parsed.hostname === 'www.linkedin.com' ||
-      parsed.hostname === 'linkedin.com';
+      parsed.hostname === "www.linkedin.com" ||
+      parsed.hostname === "linkedin.com";
 
-    const isEmbed = parsed.pathname.includes('/embed/');
+    const isEmbed = parsed.pathname.includes("/embed/");
 
     return validHost && isEmbed;
   } catch {

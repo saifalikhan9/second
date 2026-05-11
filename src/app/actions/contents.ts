@@ -20,7 +20,11 @@ export async function getContent() {
     return await res.json();
   } catch (error) {
     console.log(error);
-    return [];
+    return {
+      success: false,
+      data: [],
+      message: 'Failed to fetch contents',
+    };
   }
 }
 
@@ -66,5 +70,34 @@ export async function deleteContent(id: string) {
   } catch (error) {
     console.log(error);
     return null;
+  }
+}
+
+export async function searchContent(query: string, limit = 10) {
+  try {
+    const encodedQuery = encodeURIComponent(query);
+    const res = await fetch(
+      `${BASE_URL}/api/contents/search?query=${encodedQuery}&limit=${limit}`,
+      {
+        method: 'GET',
+        headers: {
+          Cookie: (await headers()).get('cookie') || '',
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    if (!res.ok) {
+      throw new Error('Failed to search contents');
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.log(error);
+    return {
+      success: false,
+      data: [],
+      message: 'Failed to search contents',
+    };
   }
 }
